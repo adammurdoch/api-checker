@@ -134,12 +134,14 @@ public class ApiChecker {
         if (!libDir.isDirectory()) {
             throw new IllegalArgumentException( String.format("Distribution %s does not contain a lib/ directory", distroDir));
         }
+        inspectDir(classes, libDir);
 
-        for (File file : libDir.listFiles()) {
-            if (file.isFile()) {
-                inspectJar(file, classes);
-            }
+        File pluginsDir = new File(libDir, "plugins");
+        if (!pluginsDir.isDirectory()) {
+            throw new IllegalArgumentException( String.format("Distribution %s does not contain a lib/plugins/ directory", distroDir));
         }
+        inspectDir(classes, pluginsDir);
+
         classes.resolveSuperTypes();
 
         classes.getVisibleApiClasses().values().forEach(details -> {
@@ -152,6 +154,14 @@ public class ApiChecker {
                 System.out.println(String.format("  * method: %s", method));
             }
         });
+    }
+
+    private void inspectDir(ClassSet classes, File libDir) throws IOException {
+        for (File file : libDir.listFiles()) {
+            if (file.isFile()) {
+                inspectJar(file, classes);
+            }
+        }
     }
 
     private void inspectJar(File file, ClassSet classes) throws IOException {

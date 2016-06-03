@@ -29,6 +29,7 @@ public class DistroFixture {
         this.installDir = installDir;
         libDir = new File(installDir, "lib");
         libDir.mkdirs();
+        new File(libDir, "plugins").mkdirs();
     }
 
     public File getInstallDir() {
@@ -36,11 +37,13 @@ public class DistroFixture {
     }
 
     public DistroFixture lib(String name, Closure closure) throws IOException {
-        File outFile = new File(libDir, name + "-7.0.jar");
         LibraryFixture libraryFixture = new LibraryFixture(name);
         closure.setDelegate(libraryFixture);
         closure.setResolveStrategy(Closure.DELEGATE_FIRST);
         closure.call();
+
+        File outFile = new File(libDir, name + "-7.0.jar");
+        outFile.getParentFile().mkdirs();
         JarOutputStream jarFile = new JarOutputStream(new FileOutputStream(outFile));
         try {
             libraryFixture.build(jarFile);
