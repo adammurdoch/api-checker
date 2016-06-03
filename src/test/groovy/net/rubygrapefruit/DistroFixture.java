@@ -8,9 +8,14 @@ import javax.tools.JavaCompiler;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.jar.JarEntry;
@@ -73,18 +78,24 @@ public class DistroFixture {
             JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
             StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, null, null);
             JavaCompiler.CompilationTask compileTask = compiler.getTask(null, fileManager, null, Arrays.asList("-d", outputDir.getAbsolutePath()), null, fileManager.getJavaFileObjects(sourceFiles.keySet().toArray(new File[0])));
-            compileTask.call();
-
-            for (String className : sourceFiles.values()) {
-                String filesName = className.replace(".", "/") + ".class";
-                jarFile.putNextEntry(new JarEntry(filesName));
-                FileInputStream inputStream = new FileInputStream(new File(outputDir, filesName));
-                try {
-                    DefaultGroovyMethods.leftShift(jarFile, inputStream);
-                } finally {
-                    inputStream.close();
-                }
+            boolean ok = compileTask.call();
+            if (!ok) {
+                throw new IllegalArgumentException("Could not compile source files");
             }
+            Files.walkFileTree(outputDir.toPath(), new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                    String entryName = outputDir.toPath().relativize(file).toString();
+                    jarFile.putNextEntry(new JarEntry(entryName));
+                    InputStream inputStream = Files.newInputStream(file);
+                    try {
+                        DefaultGroovyMethods.leftShift(jarFile, inputStream);
+                    } finally {
+                        inputStream.close();
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+            });
         }
     }
 }

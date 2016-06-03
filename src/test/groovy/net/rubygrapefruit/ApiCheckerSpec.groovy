@@ -85,7 +85,7 @@ class ApiCheckerSpec extends Specification {
             source("org.gradle.logging.Thing1", """
                 package org.gradle.logging;
                 public class Thing1 {
-                    void doSomething() { }
+                    protected void doSomething() { }
                 }
             """)
             source("org.gradle.logging.Thing2", "package org.gradle.logging; public class Thing2 { }")
@@ -160,6 +160,46 @@ class ApiCheckerSpec extends Specification {
         new ApiChecker(before.installDir, after.installDir, listener).run()
 
         then:
+        0 * listener._
+    }
+
+    def "ignores changes to inner classes that aren't visible"() {
+        def listener = Mock(DiffListener)
+        def before = new DistroFixture(temporaryFolder.newFolder("before"))
+        before.lib("gradle-core.jar") {
+            source("org.gradle.logging.Thing1", """
+                package org.gradle.logging;
+                public class Thing1 {
+                    public static class Inner1 { }
+                    protected class Inner2 { }
+                    static class Inner3 { }
+                    private class Inner4 { }
+                }
+            """)
+        }
+        def after = new DistroFixture(temporaryFolder.newFolder("after"))
+        after.lib("gradle-core.jar") {}
+        after.lib("gradle-logging.jar") {
+            source("org.gradle.logging.Thing1", """
+                package org.gradle.logging;
+                public class Thing1 {
+                    public static class Inner1 { }
+                    protected class Inner2 { }
+                    private interface Inner3 {
+                        String thing();
+                    }
+                    class Inner5 { }
+                }
+            """)
+        }
+
+        when:
+        new ApiChecker(before.installDir, after.installDir, listener).run()
+
+        then:
+        1 * listener.classUnchanged({it.name == "org/gradle/logging/Thing1"})
+        1 * listener.classUnchanged({it.name == 'org/gradle/logging/Thing1$Inner1'})
+        1 * listener.classUnchanged({it.name == 'org/gradle/logging/Thing1$Inner2'})
         0 * listener._
     }
 
@@ -251,6 +291,42 @@ class ApiCheckerSpec extends Specification {
         1 * listener.methodAdded({it.name == "org/gradle/logging/Thing1"}, {it.name == "org/gradle/logging/Thing1"}, {it.name == "method3"})
         1 * listener.methodRemoved({it.name == "org/gradle/logging/Thing1"}, {it.name == "org/gradle/logging/Thing1"}, {it.name == "method2"})
         1 * listener.classChanged({it.name == "org/gradle/logging/Thing1"}, {it.name == "org/gradle/logging/Thing1"})
+        0 * listener._
+    }
+
+    def "ignores changes to private and package protected methods"() {
+        def listener = Mock(DiffListener)
+        def before = new DistroFixture(temporaryFolder.newFolder("before"))
+        before.lib("gradle-core.jar") {
+            source("org.gradle.logging.Thing1", """
+                package org.gradle.logging;
+                public class Thing1 {
+                    public String public1(java.util.List<String> p, boolean b) { return null; }
+                    protected String protected1(java.util.List<String> p, boolean b) { return null; }
+                    void packageProtected1() { }
+                    private void private1() { }
+                }
+            """)
+        }
+        def after = new DistroFixture(temporaryFolder.newFolder("after"))
+        after.lib("gradle-core.jar") {}
+        after.lib("gradle-logging.jar") {
+            source("org.gradle.logging.Thing1", """
+                package org.gradle.logging;
+                public class Thing1 {
+                    public String public1(java.util.List<String> p, boolean b) { return null; }
+                    protected String protected1(java.util.List<String> p, boolean b) { return null; }
+                    void packageProtected2() { }
+                    private void private3() { }
+                }
+            """)
+        }
+
+        when:
+        new ApiChecker(before.installDir, after.installDir, listener).run()
+
+        then:
+        1 * listener.classUnchanged({it.name == "org/gradle/logging/Thing1"})
         0 * listener._
     }
 }

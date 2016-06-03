@@ -1,18 +1,17 @@
 package net.rubygrapefruit;
 
-import org.objectweb.asm.Opcodes;
-
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
-class ClassDetails implements Comparable<ClassDetails> {
+public class ClassDetails implements Comparable<ClassDetails> {
     private final String name;
     private ClassDetails superClass;
     private boolean resolved;
     private final Set<ClassDetails> interfaces = new TreeSet<>();
     private final Map<String, MethodDetails> methods = new TreeMap<>();
+    private final Set<MethodDetails> visibleMethods = new TreeSet<>();
     private int access;
 
     public ClassDetails(String name) {
@@ -33,6 +32,10 @@ class ClassDetails implements Comparable<ClassDetails> {
 
     public Set<MethodDetails> getMethods() {
         return new TreeSet<>(methods.values());
+    }
+
+    public Set<MethodDetails> getVisibleMethods() {
+        return visibleMethods;
     }
 
     public String getName() {
@@ -68,16 +71,23 @@ class ClassDetails implements Comparable<ClassDetails> {
         return name.compareTo(o.name);
     }
 
-    public void addDeclaredMethod(String name, String descriptor) {
-        MethodDetails methodDetails = new MethodDetails(name, descriptor);
-        methods.put(methodDetails.getSignature(), methodDetails);
+    public void addDeclaredMethod(int access, String name, String descriptor) {
+        MethodDetails methodDetails = new MethodDetails(access, name, descriptor);
+        doAdd(methodDetails);
     }
 
     public void addInheritedMethods(Iterable<MethodDetails> methods) {
         for (MethodDetails method : methods) {
             if (!this.methods.containsKey(method.getSignature())) {
-                this.methods.put(method.getSignature(), method);
+                doAdd(method);
             }
+        }
+    }
+
+    private void doAdd(MethodDetails methodDetails) {
+        methods.put(methodDetails.getSignature(), methodDetails);
+        if (methodDetails.isVisibleOutsidePackage()) {
+            visibleMethods.add(methodDetails);
         }
     }
 
@@ -90,6 +100,6 @@ class ClassDetails implements Comparable<ClassDetails> {
     }
 
     public boolean isVisibleOutsidePackage() {
-        return (access & 0xff & Opcodes.ACC_PUBLIC) != 0;
+        return Visibility.fromAccessField(access) == Visibility.Public;
     }
 }

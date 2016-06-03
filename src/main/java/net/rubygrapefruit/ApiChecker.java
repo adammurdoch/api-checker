@@ -68,20 +68,20 @@ public class ApiChecker {
         System.out.println("==== DIFF ====");
         System.out.println();
 
-        Map<String, ClassDetails> addedClasses = new TreeMap<>(classesAfter.getApiClasses());
-        addedClasses.keySet().removeAll(classesBefore.getApiClasses().keySet());
+        Map<String, ClassDetails> addedClasses = new TreeMap<>(classesAfter.getVisibleApiClasses());
+        addedClasses.keySet().removeAll(classesBefore.getVisibleApiClasses().keySet());
         for (ClassDetails classDetails : addedClasses.values()) {
             diffListener.classAdded(classDetails);
         }
 
-        Map<String, ClassDetails> removedClasses = new TreeMap<>(classesBefore.getApiClasses());
-        removedClasses.keySet().removeAll(classesAfter.getApiClasses().keySet());
+        Map<String, ClassDetails> removedClasses = new TreeMap<>(classesBefore.getVisibleApiClasses());
+        removedClasses.keySet().removeAll(classesAfter.getVisibleApiClasses().keySet());
         for (ClassDetails classDetails : removedClasses.values()) {
             diffListener.classRemoved(classDetails);
         }
 
-        Set<String> retainedClasses = new TreeSet<>(classesAfter.getApiClasses().keySet());
-        retainedClasses.retainAll(classesBefore.getApiClasses().keySet());
+        Set<String> retainedClasses = new TreeSet<>(classesAfter.getVisibleApiClasses().keySet());
+        retainedClasses.retainAll(classesBefore.getVisibleApiClasses().keySet());
         for (String name : retainedClasses) {
             ClassDetails before = classesBefore.get(name);
             ClassDetails after = classesAfter.get(name);
@@ -103,15 +103,15 @@ public class ApiChecker {
                     }
                 }
             }
-            if (!before.getMethods().equals(after.getMethods())) {
+            if (!before.getVisibleMethods().equals(after.getVisibleMethods())) {
                 diffCollector.changed();
-                for (MethodDetails method : before.getMethods()) {
-                    if (!after.getMethods().contains(method)) {
+                for (MethodDetails method : before.getVisibleMethods()) {
+                    if (!after.getVisibleMethods().contains(method)) {
                         diffListener.methodRemoved(before, after, method);
                     }
                 }
-                for (MethodDetails method : after.getMethods()) {
-                    if (!before.getMethods().contains(method)) {
+                for (MethodDetails method : after.getVisibleMethods()) {
+                    if (!before.getVisibleMethods().contains(method)) {
                         diffListener.methodAdded(before, after, method);
                     }
                 }
@@ -137,12 +137,12 @@ public class ApiChecker {
 
         for (File file : libDir.listFiles()) {
             if (file.isFile()) {
-                showJar(file, classes);
+                inspectJar(file, classes);
             }
         }
         classes.resolveSuperTypes();
 
-        classes.getApiClasses().values().forEach(details -> {
+        classes.getVisibleApiClasses().values().forEach(details -> {
             System.out.println(String.format("* class: %s", details));
             System.out.println(String.format("  * superclass: %s", details.getSuperClass()));
             for (ClassDetails superType : details.getInterfaces()) {
@@ -154,7 +154,7 @@ public class ApiChecker {
         });
     }
 
-    private void showJar(File file, ClassSet classes) throws IOException {
+    private void inspectJar(File file, ClassSet classes) throws IOException {
         JarFile jarFile = new JarFile(file);
         try {
             jarFile.stream().filter(
@@ -179,7 +179,7 @@ public class ApiChecker {
                             @Override
                             public MethodVisitor visitMethod(int access, String name, String desc, String signature,
                                                              String[] exceptions) {
-                                classDetails.addDeclaredMethod(name, desc);
+                                classDetails.addDeclaredMethod(access, name, desc);
                                 return super.visitMethod(access, name, desc, signature, exceptions);
                             }
                         }, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);

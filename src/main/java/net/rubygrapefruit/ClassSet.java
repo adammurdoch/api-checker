@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 
-class ClassSet {
+public class ClassSet {
     private final Map<String, ClassDetails> classes = new HashMap<>();
     private final Map<String, ClassDetails> apiClasses = new TreeMap<>();
 
@@ -50,7 +50,10 @@ class ClassSet {
         details.setResolved(true);
     }
 
-    public Map<String, ClassDetails> getApiClasses() {
+    /**
+     * Classes that make up the public API
+     */
+    public Map<String, ClassDetails> getVisibleApiClasses() {
         return apiClasses;
     }
 }

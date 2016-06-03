@@ -1,10 +1,12 @@
 package net.rubygrapefruit;
 
-class MethodDetails implements Comparable<MethodDetails> {
+public class MethodDetails implements Comparable<MethodDetails> {
+    private final int access;
     private final String name;
     private final String descriptor;
 
-    public MethodDetails(String name, String descriptor) {
+    public MethodDetails(int access, String name, String descriptor) {
+        this.access = access;
         this.name = name;
         this.descriptor = descriptor;
     }
@@ -30,7 +32,12 @@ class MethodDetails implements Comparable<MethodDetails> {
         return getSignature();
     }
 
-    String getSignature() {
+    public String getSignature() {
         return name + descriptor;
+    }
+
+    public boolean isVisibleOutsidePackage() {
+        Visibility visibility = Visibility.fromAccessField(access);
+        return visibility == Visibility.Public || visibility == Visibility.Protected;
     }
 }
