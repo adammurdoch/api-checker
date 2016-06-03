@@ -13,7 +13,7 @@ class ClassSet {
         if (details == null) {
             details = new ClassDetails(name);
             classes.put(name, details);
-            if (details.getName().startsWith("org/gradle/logging") && !details.getName().contains("/internal/")) {
+            if (details.getName().startsWith("org/gradle/") && !details.getName().contains("/internal/") && !details.getName().startsWith("org/gradle/launcher/") && !details.getName().startsWith("org/gradle/gradleplugin/") && !details.getName().startsWith("org/gradle/listener/") && !details.getName().startsWith("org/gradle/initialization/")) {
                 apiClasses.put(name, details);
             }
         }
