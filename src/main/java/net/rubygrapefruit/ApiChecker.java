@@ -17,6 +17,7 @@ import java.util.jar.JarFile;
 /**
  * TODO: Changes in inherited supertypes
  * TODO: Changes in modifiers (visibility, static, abstract, etc)
+ * TODO: Change from type (class, interface, annotation, enum, etc)
  * TODO: Skip private methods
  * TODO: Changes in type parameters for types, methods, exceptions
  * TODO: Changes in checked exceptions
@@ -24,7 +25,8 @@ import java.util.jar.JarFile;
  * TODO: Changes in annotations
  * TODO: Internal classes reachable from public API
  * TODO: contents of `lib/plugins`
- * TODO: detect moved classes
+ * TODO: report on moved classes, rather than add + remove
+ * TODO: report on change to method parameters and return types, rather than add + remove
  */
 public class ApiChecker {
     private final File before;
@@ -83,40 +85,43 @@ public class ApiChecker {
             ClassDetails after = classesAfter.get(name);
             boolean changed = false;
             if (!before.getSuperClass().equals(after.getSuperClass())) {
-                System.out.println("DIFFERENT SUPER CLASS: " + after);
+                diffListener.superClassChanged(before, after);
                 changed = true;
             }
             if (!before.getInterfaces().equals(after.getInterfaces())) {
-                System.out.println("DIFFERENT INTERFACES: " + after);
-                diff(before.getInterfaces(), after.getInterfaces());
                 changed = true;
+                for (ClassDetails interfaceDetails : before.getInterfaces()) {
+                    if (!after.getInterfaces().contains(interfaceDetails)) {
+                        diffListener.interfaceRemoved(before, after, interfaceDetails);
+                    }
+                }
+                for (ClassDetails interfaceDetails : after.getInterfaces()) {
+                    if (!before.getInterfaces().contains(interfaceDetails)) {
+                        diffListener.interfaceAdded(before, after, interfaceDetails);
+                    }
+                }
             }
             if (!before.getMethods().equals(after.getMethods())) {
-                System.out.println("DIFFERENT METHODS: " + after);
-                diff(before.getMethods(), after.getMethods());
                 changed = true;
+                for (MethodDetails method : before.getMethods()) {
+                    if (!after.getMethods().contains(method)) {
+                        diffListener.methodRemoved(before, after, method);
+                    }
+                }
+                for (MethodDetails method : after.getMethods()) {
+                    if (!before.getMethods().contains(method)) {
+                        diffListener.methodAdded(before, after, method);
+                    }
+                }
             }
             if (changed) {
-                diffListener.classChanged(after);
+                diffListener.classChanged(before, after);
             } else {
                 diffListener.classUnchanged(after);
             }
         }
 
         System.out.println();
-    }
-
-    private <T> void diff(Set<T> before, Set<T> after) {
-        for (T t : before) {
-            if (!after.contains(t)) {
-                System.out.println("  * Removed: " + t);
-            }
-        }
-        for (T t : after) {
-            if (!before.contains(t)) {
-                System.out.println("  * Added: " + t);
-            }
-        }
     }
 
     private void inspect(File distroDir, ClassSet classes) throws IOException {
@@ -200,6 +205,31 @@ public class ApiChecker {
         @Override
         public void classRemoved(ClassDetails details) {
             System.out.println("REMOVED: " + details);
+        }
+
+        @Override
+        public void superClassChanged(ClassDetails before, ClassDetails after) {
+            System.out.println("SUPER CLASS CHANGED: " + after + ", was: " + before.getSuperClass() + ", now: " + after.getSuperClass());
+        }
+
+        @Override
+        public void interfaceAdded(ClassDetails before, ClassDetails after, ClassDetails addedInterface) {
+            System.out.println("INTERFACE ADDED: " + after + ": " + addedInterface);
+        }
+
+        @Override
+        public void interfaceRemoved(ClassDetails before, ClassDetails after, ClassDetails removedInterface) {
+            System.out.println("INTERFACE REMOVED: " + after + ": " + removedInterface);
+        }
+
+        @Override
+        public void methodAdded(ClassDetails before, ClassDetails after, MethodDetails addMethod) {
+            System.out.println("METHOD ADDED: " + after + ": " + addMethod);
+        }
+
+        @Override
+        public void methodRemoved(ClassDetails before, ClassDetails after, MethodDetails removedMethod) {
+            System.out.println("METHOD REMOVED: " + after + ": " + removedMethod);
         }
     }
 }
