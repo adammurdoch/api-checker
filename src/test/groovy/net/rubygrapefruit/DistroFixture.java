@@ -54,7 +54,9 @@ public class DistroFixture {
         }
 
         public void source(String className, String classText) throws IOException {
-            File sourceFile = new File(installDir, "tmp/" + name + "/" + className + ".java");
+            String packageName = className.substring(0, className.lastIndexOf('.'));
+            String baseName = className.substring(className.lastIndexOf('.') + 1, className.length());
+            File sourceFile = new File(installDir, "tmp/" + name + "/" + packageName + "/" + baseName + ".java");
             sourceFile.getParentFile().mkdirs();
             DefaultGroovyMethods.setText(sourceFile, classText);
             sourceFiles.put(sourceFile, className);

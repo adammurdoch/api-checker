@@ -24,6 +24,8 @@ import java.util.jar.JarFile;
  * TODO: Changes in fields
  * TODO: Changes in annotations
  * TODO: Internal classes reachable from public API
+ * TODO: Classes reachable from public API but not visible
+ * TODO: Incubating/deprecated changes
  * TODO: contents of `lib/plugins`
  * TODO: report on moved classes, rather than add + remove
  * TODO: report on change to method parameters and return types, rather than add + remove
@@ -83,13 +85,13 @@ public class ApiChecker {
         for (String name : retainedClasses) {
             ClassDetails before = classesBefore.get(name);
             ClassDetails after = classesAfter.get(name);
-            boolean changed = false;
+            DiffCollector diffCollector = new DiffCollector(before, after, diffListener);
             if (!before.getSuperClass().equals(after.getSuperClass())) {
+                diffCollector.changed();
                 diffListener.superClassChanged(before, after);
-                changed = true;
             }
             if (!before.getInterfaces().equals(after.getInterfaces())) {
-                changed = true;
+                diffCollector.changed();
                 for (ClassDetails interfaceDetails : before.getInterfaces()) {
                     if (!after.getInterfaces().contains(interfaceDetails)) {
                         diffListener.interfaceRemoved(before, after, interfaceDetails);
@@ -102,7 +104,7 @@ public class ApiChecker {
                 }
             }
             if (!before.getMethods().equals(after.getMethods())) {
-                changed = true;
+                diffCollector.changed();
                 for (MethodDetails method : before.getMethods()) {
                     if (!after.getMethods().contains(method)) {
                         diffListener.methodRemoved(before, after, method);
@@ -114,11 +116,7 @@ public class ApiChecker {
                     }
                 }
             }
-            if (changed) {
-                diffListener.classChanged(before, after);
-            } else {
-                diffListener.classUnchanged(after);
-            }
+            diffCollector.done();
         }
 
         System.out.println();
@@ -167,6 +165,7 @@ public class ApiChecker {
                     try {
                         ClassReader reader = new ClassReader(inputStream);
                         ClassDetails classDetails = classes.get(reader.getClassName());
+                        classDetails.setAccess(reader.getAccess());
                         classDetails.setSuperClass(classes.get(reader.getSuperName()));
                         for (String name : reader.getInterfaces()) {
                             classDetails.addInterface(classes.get(name));
@@ -196,6 +195,32 @@ public class ApiChecker {
         }
     }
 
+    private static class DiffCollector {
+        final DiffListener listener;
+        final ClassDetails before;
+        final ClassDetails after;
+        boolean changed;
+
+        public DiffCollector(ClassDetails after, ClassDetails before, DiffListener listener) {
+            this.after = after;
+            this.before = before;
+            this.listener = listener;
+        }
+
+        void changed() {
+            if (!changed) {
+                listener.classChanged(before, after);
+                changed = true;
+            }
+        }
+
+        void done() {
+            if (!changed) {
+                listener.classUnchanged(after);
+            }
+        }
+    }
+
     private static class DiffReporter extends DiffListener {
         @Override
         public void classAdded(ClassDetails details) {
@@ -208,28 +233,34 @@ public class ApiChecker {
         }
 
         @Override
+        public void classChanged(ClassDetails before, ClassDetails after) {
+            System.out.println();
+            System.out.println("CHANGED: " + after);
+        }
+
+        @Override
         public void superClassChanged(ClassDetails before, ClassDetails after) {
-            System.out.println("SUPER CLASS CHANGED: " + after + ", was: " + before.getSuperClass() + ", now: " + after.getSuperClass());
+            System.out.println("  * super class changed: was: " + before.getSuperClass() + ", now: " + after.getSuperClass());
         }
 
         @Override
         public void interfaceAdded(ClassDetails before, ClassDetails after, ClassDetails addedInterface) {
-            System.out.println("INTERFACE ADDED: " + after + ": " + addedInterface);
+            System.out.println("  * interface added: " + addedInterface);
         }
 
         @Override
         public void interfaceRemoved(ClassDetails before, ClassDetails after, ClassDetails removedInterface) {
-            System.out.println("INTERFACE REMOVED: " + after + ": " + removedInterface);
+            System.out.println("  * interface removed: " + removedInterface);
         }
 
         @Override
         public void methodAdded(ClassDetails before, ClassDetails after, MethodDetails addMethod) {
-            System.out.println("METHOD ADDED: " + after + ": " + addMethod);
+            System.out.println("  * method added: " + addMethod);
         }
 
         @Override
         public void methodRemoved(ClassDetails before, ClassDetails after, MethodDetails removedMethod) {
-            System.out.println("METHOD REMOVED: " + after + ": " + removedMethod);
+            System.out.println("  * method remove: " + removedMethod);
         }
     }
 }

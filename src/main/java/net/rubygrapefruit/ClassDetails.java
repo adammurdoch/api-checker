@@ -1,5 +1,7 @@
 package net.rubygrapefruit;
 
+import org.objectweb.asm.Opcodes;
+
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -11,6 +13,7 @@ class ClassDetails implements Comparable<ClassDetails> {
     private boolean resolved;
     private final Set<ClassDetails> interfaces = new TreeSet<>();
     private final Map<String, MethodDetails> methods = new TreeMap<>();
+    private int access;
 
     public ClassDetails(String name) {
         this.name = name;
@@ -80,5 +83,13 @@ class ClassDetails implements Comparable<ClassDetails> {
 
     public void addInterface(ClassDetails classDetails) {
         interfaces.add(classDetails);
+    }
+
+    public void setAccess(int access) {
+        this.access = access;
+    }
+
+    public boolean isVisibleOutsidePackage() {
+        return (access & 0xff & Opcodes.ACC_PUBLIC) != 0;
     }
 }

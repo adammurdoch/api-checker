@@ -38,12 +38,12 @@ class ApiCheckerSpec extends Specification {
         def listener = Mock(DiffListener)
         def before = new DistroFixture(temporaryFolder.newFolder("before"))
         before.lib("gradle-core.jar") {
-            source("org.gradle.logging.Thing", "package org.gradle.logging; class Thing { }")
+            source("org.gradle.logging.Thing", "package org.gradle.logging; public class Thing { }")
         }
         def after = new DistroFixture(temporaryFolder.newFolder("after"))
         after.lib("gradle-core.jar") {}
         after.lib("gradle-logging.jar") {
-            source("org.gradle.logging.Thing", "package org.gradle.logging; class Thing { }")
+            source("org.gradle.logging.Thing", "package org.gradle.logging; public class Thing { }")
         }
 
         when:
@@ -58,14 +58,14 @@ class ApiCheckerSpec extends Specification {
         def listener = Mock(DiffListener)
         def before = new DistroFixture(temporaryFolder.newFolder("before"))
         before.lib("gradle-core.jar") {
-            source("org.gradle.logging.Thing1", "package org.gradle.logging; class Thing1 { }")
-            source("org.gradle.logging.Thing2", "package org.gradle.logging; class Thing2 { }")
+            source("org.gradle.logging.Thing1", "package org.gradle.logging; public class Thing1 { }")
+            source("org.gradle.logging.Thing2", "package org.gradle.logging; public class Thing2 { }")
         }
         def after = new DistroFixture(temporaryFolder.newFolder("after"))
         after.lib("gradle-core.jar") {}
         after.lib("gradle-logging.jar") {
-            source("org.gradle.logging.Thing1", "package org.gradle.logging; class Thing1 { }")
-            source("org.gradle.logging.Thing3", "package org.gradle.logging; class Thing3 { }")
+            source("org.gradle.logging.Thing1", "package org.gradle.logging; public class Thing1 { }")
+            source("org.gradle.logging.Thing3", "package org.gradle.logging; public class Thing3 { }")
         }
 
         when:
@@ -84,17 +84,17 @@ class ApiCheckerSpec extends Specification {
         before.lib("gradle-core.jar") {
             source("org.gradle.logging.Thing1", """
                 package org.gradle.logging;
-                class Thing1 {
+                public class Thing1 {
                     void doSomething() { }
                 }
             """)
-            source("org.gradle.logging.Thing2", "package org.gradle.logging; class Thing2 { }")
+            source("org.gradle.logging.Thing2", "package org.gradle.logging; public class Thing2 { }")
         }
         def after = new DistroFixture(temporaryFolder.newFolder("after"))
         after.lib("gradle-core.jar") {}
         after.lib("gradle-logging.jar") {
-            source("org.gradle.logging.Thing1", "package org.gradle.logging; class Thing1 { }")
-            source("org.gradle.logging.Thing2", "package org.gradle.logging; class Thing2 { }")
+            source("org.gradle.logging.Thing1", "package org.gradle.logging; public class Thing1 { }")
+            source("org.gradle.logging.Thing2", "package org.gradle.logging; public class Thing2 { }")
         }
 
         when:
@@ -113,19 +113,47 @@ class ApiCheckerSpec extends Specification {
         before.lib("gradle-core.jar") {
             source("org.gradle.internal.Thing1", """
                 package org.gradle.internal;
-                class Thing1 {
+                public class Thing1 {
                     void doSomething() { }
                 }
             """)
-            source("org.gradle.internal.Thing2", "package org.gradle.internal; class Thing2 { }")
-            source("org.gradle.internal.Thing3", "package org.gradle.internal; class Thing3 { }")
+            source("org.gradle.internal.Thing2", "package org.gradle.internal; public class Thing2 { }")
+            source("org.gradle.internal.Thing3", "package org.gradle.internal; public class Thing3 { }")
         }
         def after = new DistroFixture(temporaryFolder.newFolder("after"))
         after.lib("gradle-core.jar") {}
         after.lib("gradle-logging.jar") {
-            source("org.gradle.internal.Thing1", "package org.gradle.internal; class Thing1 { }")
-            source("org.gradle.internal.Thing2", "package org.gradle.internal; class Thing2 { }")
-            source("org.gradle.internal.Thing4", "package org.gradle.internal; class Thing4 { }")
+            source("org.gradle.internal.Thing1", "package org.gradle.internal; public class Thing1 { }")
+            source("org.gradle.internal.Thing2", "package org.gradle.internal; public class Thing2 { }")
+            source("org.gradle.internal.Thing4", "package org.gradle.internal; public class Thing4 { }")
+        }
+
+        when:
+        new ApiChecker(before.installDir, after.installDir, listener).run()
+
+        then:
+        0 * listener._
+    }
+
+    def "ignores changes to package protected classes"() {
+        def listener = Mock(DiffListener)
+        def before = new DistroFixture(temporaryFolder.newFolder("before"))
+        before.lib("gradle-core.jar") {
+            source("org.gradle.logging.Thing1", """
+                package org.gradle.logging;
+                class Thing1 {
+                    void doSomething() { }
+                }
+            """)
+            source("org.gradle.logging.Thing2", "package org.gradle.logging; class Thing2 { }")
+            source("org.gradle.logging.Thing3", "package org.gradle.logging; class Thing3 { }")
+        }
+        def after = new DistroFixture(temporaryFolder.newFolder("after"))
+        after.lib("gradle-core.jar") {}
+        after.lib("gradle-logging.jar") {
+            source("org.gradle.logging.Thing1", "package org.gradle.logging; class Thing1 { }")
+            source("org.gradle.logging.Thing2", "package org.gradle.logging; class Thing2 { }")
+            source("org.gradle.logging.Thing4", "package org.gradle.logging; class Thing4 { }")
         }
 
         when:
@@ -139,14 +167,14 @@ class ApiCheckerSpec extends Specification {
         def listener = Mock(DiffListener)
         def before = new DistroFixture(temporaryFolder.newFolder("before"))
         before.lib("gradle-core.jar") {
-            source("org.gradle.logging.Thing1", "package org.gradle.logging; class Thing1 { }")
-            source("org.gradle.logging.Thing2", "package org.gradle.logging; class Thing2 extends Thing1 { }")
+            source("org.gradle.logging.Thing1", "package org.gradle.logging; public class Thing1 { }")
+            source("org.gradle.logging.Thing2", "package org.gradle.logging; public class Thing2 extends Thing1 { }")
         }
         def after = new DistroFixture(temporaryFolder.newFolder("after"))
         after.lib("gradle-core.jar") {}
         after.lib("gradle-logging.jar") {
-            source("org.gradle.logging.Thing1", "package org.gradle.logging; class Thing1 extends Thing2 { }")
-            source("org.gradle.logging.Thing2", "package org.gradle.logging; class Thing2 { }")
+            source("org.gradle.logging.Thing1", "package org.gradle.logging; public class Thing1 extends Thing2 { }")
+            source("org.gradle.logging.Thing2", "package org.gradle.logging; public class Thing2 { }")
         }
 
         when:
@@ -164,18 +192,18 @@ class ApiCheckerSpec extends Specification {
         def listener = Mock(DiffListener)
         def before = new DistroFixture(temporaryFolder.newFolder("before"))
         before.lib("gradle-core.jar") {
-            source("org.gradle.logging.Thing1", "package org.gradle.logging; interface Thing1 { }")
-            source("org.gradle.logging.Thing2", "package org.gradle.logging; interface Thing2 { }")
-            source("org.gradle.logging.Thing3", "package org.gradle.logging; class Thing3 implements Thing1 { }")
-            source("org.gradle.logging.Thing4", "package org.gradle.logging; interface Thing4 extends Thing1 { }")
+            source("org.gradle.logging.Thing1", "package org.gradle.logging; public interface Thing1 { }")
+            source("org.gradle.logging.Thing2", "package org.gradle.logging; public interface Thing2 { }")
+            source("org.gradle.logging.Thing3", "package org.gradle.logging; public class Thing3 implements Thing1 { }")
+            source("org.gradle.logging.Thing4", "package org.gradle.logging; public interface Thing4 extends Thing1 { }")
         }
         def after = new DistroFixture(temporaryFolder.newFolder("after"))
         after.lib("gradle-core.jar") {}
         after.lib("gradle-logging.jar") {
-            source("org.gradle.logging.Thing1", "package org.gradle.logging; interface Thing1 { }")
-            source("org.gradle.logging.Thing2", "package org.gradle.logging; interface Thing2 { }")
-            source("org.gradle.logging.Thing3", "package org.gradle.logging; class Thing3 implements Thing2 { }")
-            source("org.gradle.logging.Thing4", "package org.gradle.logging; interface Thing4 extends Thing1, Thing2 { }")
+            source("org.gradle.logging.Thing1", "package org.gradle.logging; public interface Thing1 { }")
+            source("org.gradle.logging.Thing2", "package org.gradle.logging; public interface Thing2 { }")
+            source("org.gradle.logging.Thing3", "package org.gradle.logging; public class Thing3 implements Thing2 { }")
+            source("org.gradle.logging.Thing4", "package org.gradle.logging; public interface Thing4 extends Thing1, Thing2 { }")
         }
 
         when:
@@ -198,7 +226,7 @@ class ApiCheckerSpec extends Specification {
         before.lib("gradle-core.jar") {
             source("org.gradle.logging.Thing1", """
                 package org.gradle.logging;
-                interface Thing1 {
+                public interface Thing1 {
                     String method1(java.util.List<String> p, boolean b);
                     void method2();
                 }
@@ -209,7 +237,7 @@ class ApiCheckerSpec extends Specification {
         after.lib("gradle-logging.jar") {
             source("org.gradle.logging.Thing1", """
                 package org.gradle.logging;
-                interface Thing1 {
+                public interface Thing1 {
                     String method1(java.util.List<String> p, boolean b);
                     boolean method3(long l);
                 }

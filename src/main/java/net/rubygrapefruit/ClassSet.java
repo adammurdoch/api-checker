@@ -13,16 +13,25 @@ class ClassSet {
         if (details == null) {
             details = new ClassDetails(name);
             classes.put(name, details);
-            if (details.getName().startsWith("org/gradle/") && !details.getName().contains("/internal/") && !details.getName().startsWith("org/gradle/launcher/") && !details.getName().startsWith("org/gradle/gradleplugin/") && !details.getName().startsWith("org/gradle/listener/") && !details.getName().startsWith("org/gradle/initialization/")) {
-                apiClasses.put(name, details);
-            }
         }
         return details;
+    }
+
+    private boolean isPublicApiType(ClassDetails details) {
+        return details.getName().startsWith("org/gradle/")
+                && !details.getName().contains("/internal/")
+                && !details.getName().startsWith("org/gradle/launcher/")
+                && !details.getName().startsWith("org/gradle/gradleplugin/")
+                && !details.getName().startsWith("org/gradle/listener/")
+                && !details.getName().startsWith("org/gradle/initialization/");
     }
 
     public void resolveSuperTypes() {
         for (ClassDetails details : classes.values()) {
             resolveSuperTypes(details);
+            if (isPublicApiType(details) && details.isVisibleOutsidePackage()) {
+                apiClasses.put(details.getName(), details);
+            }
         }
     }
 
