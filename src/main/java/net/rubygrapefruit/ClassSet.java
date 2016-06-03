@@ -51,7 +51,7 @@ public class ClassSet {
     }
 
     /**
-     * Classes that make up the public API
+     * Classes that make up the public API, indexed by name.
      */
     public Map<String, ClassDetails> getVisibleApiClasses() {
         return apiClasses;

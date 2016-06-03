@@ -38,7 +38,13 @@ class ApiCheckerSpec extends Specification {
         def listener = Mock(DiffListener)
         def before = new DistroFixture(temporaryFolder.newFolder("before"))
         before.lib("gradle-core.jar") {
-            source("org.gradle.logging.Thing", "package org.gradle.logging; public class Thing { }")
+            source("org.gradle.logging.Thing", """
+                package org.gradle.logging;
+                public class Thing {
+                    public String field;
+                    public void doThing() { }
+                }
+            """)
         }
         before.lib("plugins/gradle-plugins.jar") {
             source("org.gradle.java.Thing2", "package org.gradle.java; public class Thing2 { }")
@@ -46,7 +52,13 @@ class ApiCheckerSpec extends Specification {
         def after = new DistroFixture(temporaryFolder.newFolder("after"))
         after.lib("gradle-core.jar") {}
         after.lib("gradle-logging.jar") {
-            source("org.gradle.logging.Thing", "package org.gradle.logging; public class Thing { }")
+            source("org.gradle.logging.Thing", """
+                package org.gradle.logging;
+                public class Thing {
+                    public String field;
+                    public void doThing() { }
+                }
+            """)
         }
         after.lib("plugins/gradle-java.jar") {
             source("org.gradle.java.Thing2", "package org.gradle.java; public class Thing2 { }")
@@ -492,6 +504,54 @@ class ApiCheckerSpec extends Specification {
 
         then:
         1 * listener.classUnchanged({it.name == "org/gradle/logging/Thing1"})
+        0 * listener._
+    }
+
+    def "reports on change to fields"() {
+        def listener = Mock(DiffListener)
+        def before = new DistroFixture(temporaryFolder.newFolder("before"))
+        before.lib("gradle-core.jar") {
+            source("org.gradle.logging.Thing1", """
+                package org.gradle.logging;
+                public class Thing1 {
+                    public String public1;
+                    public String public2;
+                    public String public3;
+                    protected long protected1;
+                    protected long protected2;
+                    protected long protected3;
+                }
+            """)
+        }
+        def after = new DistroFixture(temporaryFolder.newFolder("after"))
+        after.lib("gradle-core.jar") {}
+        after.lib("gradle-logging.jar") {
+            source("org.gradle.logging.Thing1", """
+                package org.gradle.logging;
+                public class Thing1 {
+                    public String public1;
+                    public Object public2;
+                    public int public4;
+                    protected long protected1;
+                    protected Long protected2;
+                    protected String protected4;
+                }
+            """)
+        }
+
+        when:
+        new ApiChecker(before.installDir, after.installDir, listener).run()
+
+        then:
+        1 * listener.classChanged({it.name == "org/gradle/logging/Thing1"}, {it.name == "org/gradle/logging/Thing1"})
+        1 * listener.fieldRemoved({it.name == "org/gradle/logging/Thing1"}, {it.name == "org/gradle/logging/Thing1"}, {it.name == "public2"})
+        1 * listener.fieldAdded({it.name == "org/gradle/logging/Thing1"}, {it.name == "org/gradle/logging/Thing1"}, {it.name == "public2"})
+        1 * listener.fieldRemoved({it.name == "org/gradle/logging/Thing1"}, {it.name == "org/gradle/logging/Thing1"}, {it.name == "public3"})
+        1 * listener.fieldAdded({it.name == "org/gradle/logging/Thing1"}, {it.name == "org/gradle/logging/Thing1"}, {it.name == "public4"})
+        1 * listener.fieldRemoved({it.name == "org/gradle/logging/Thing1"}, {it.name == "org/gradle/logging/Thing1"}, {it.name == "protected2"})
+        1 * listener.fieldAdded({it.name == "org/gradle/logging/Thing1"}, {it.name == "org/gradle/logging/Thing1"}, {it.name == "protected2"})
+        1 * listener.fieldRemoved({it.name == "org/gradle/logging/Thing1"}, {it.name == "org/gradle/logging/Thing1"}, {it.name == "protected3"})
+        1 * listener.fieldAdded({it.name == "org/gradle/logging/Thing1"}, {it.name == "org/gradle/logging/Thing1"}, {it.name == "protected4"})
         0 * listener._
     }
 }

@@ -1,9 +1,6 @@
 package net.rubygrapefruit;
 
-import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.ClassVisitor;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -16,12 +13,12 @@ import java.util.jar.JarFile;
 
 /**
  * TODO: Changes in inherited supertypes
- * TODO: Changes in modifiers (visibility, static, abstract, etc)
+ * TODO: Changes in modifiers (visibility, static, abstract, etc) for classes, inner classes, methods, fields
  * TODO: Change from type (class, interface, annotation, enum, etc)
  * TODO: Skip private methods
  * TODO: Changes in type parameters for types, methods, exceptions
  * TODO: Changes in checked exceptions
- * TODO: Changes in fields
+ * TODO: Changes in inherited fields, ignore non-visible fields
  * TODO: Changes in annotations
  * TODO: Internal classes reachable from public API
  * TODO: Classes reachable from public API but not visible
@@ -116,6 +113,19 @@ public class ApiChecker {
                     }
                 }
             }
+            if (!before.getFields().equals(after.getFields())) {
+                diffCollector.changed();
+                for (FieldDetails field : before.getFields()) {
+                    if (!after.getFields().contains(field)) {
+                        diffListener.fieldRemoved(before, after, field);
+                    }
+                }
+                for (FieldDetails field : after.getFields()) {
+                    if (!before.getFields().contains(field)) {
+                        diffListener.fieldAdded(before, after, field);
+                    }
+                }
+            }
             diffCollector.done();
         }
 
@@ -153,6 +163,9 @@ public class ApiChecker {
             for (MethodDetails method : details.getMethods()) {
                 System.out.println(String.format("  * method: %s", method));
             }
+            for (FieldDetails field : details.getFields()) {
+                System.out.println(String.format("  * field: %s", field));
+            }
         });
     }
 
@@ -167,8 +180,7 @@ public class ApiChecker {
     private void inspectJar(File file, ClassSet classes) throws IOException {
         JarFile jarFile = new JarFile(file);
         try {
-            jarFile.stream().filter(
-                    entry -> !entry.isDirectory() && entry.getName().endsWith(".class")).forEach(entry -> {
+            jarFile.stream().filter(entry -> !entry.isDirectory() && entry.getName().endsWith(".class")).forEach(entry -> {
                 try {
                     InputStream inputStream = jarFile.getInputStream(entry);
                     try {
@@ -189,7 +201,14 @@ public class ApiChecker {
                             public MethodVisitor visitMethod(int access, String name, String desc, String signature,
                                                              String[] exceptions) {
                                 classDetails.addDeclaredMethod(access, name, desc);
-                                return super.visitMethod(access, name, desc, signature, exceptions);
+                                return null;
+                            }
+
+                            @Override
+                            public FieldVisitor visitField(int access, String name, String desc, String signature,
+                                                           Object value) {
+                                classDetails.addDeclaredField(access, name, desc);
+                                return null;
                             }
                         }, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
                     } finally {
@@ -263,13 +282,23 @@ public class ApiChecker {
         }
 
         @Override
-        public void methodAdded(ClassDetails before, ClassDetails after, MethodDetails addMethod) {
-            System.out.println("  * method added: " + addMethod);
+        public void methodAdded(ClassDetails before, ClassDetails after, MethodDetails addedMethod) {
+            System.out.println("  * method added: " + addedMethod);
         }
 
         @Override
         public void methodRemoved(ClassDetails before, ClassDetails after, MethodDetails removedMethod) {
             System.out.println("  * method removed: " + removedMethod);
+        }
+
+        @Override
+        public void fieldAdded(ClassDetails before, ClassDetails after, FieldDetails addedField) {
+            System.out.println("  * field added: " + addedField);
+        }
+
+        @Override
+        public void fieldRemoved(ClassDetails before, ClassDetails after, FieldDetails removedField) {
+            System.out.println("  * field removed: " + removedField);
         }
     }
 }

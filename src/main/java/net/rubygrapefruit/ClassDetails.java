@@ -11,6 +11,7 @@ public class ClassDetails implements Comparable<ClassDetails> {
     private boolean resolved;
     private final Set<ClassDetails> interfaces = new TreeSet<>();
     private final Map<String, MethodDetails> methods = new TreeMap<>();
+    private final Map<String, FieldDetails> fields = new TreeMap<>();
     private final Set<MethodDetails> visibleMethods = new TreeSet<>();
     private int access;
 
@@ -36,6 +37,10 @@ public class ClassDetails implements Comparable<ClassDetails> {
 
     public Set<MethodDetails> getVisibleMethods() {
         return visibleMethods;
+    }
+
+    public Set<FieldDetails> getFields() {
+        return new TreeSet<>(fields.values());
     }
 
     public String getName() {
@@ -101,5 +106,10 @@ public class ClassDetails implements Comparable<ClassDetails> {
 
     public boolean isVisibleOutsidePackage() {
         return Visibility.fromAccessField(access) == Visibility.Public;
+    }
+
+    public void addDeclaredField(int access, String name, String descriptor) {
+        FieldDetails fieldDetails = new FieldDetails(access, name, descriptor);
+        fields.put(fieldDetails.getName(), fieldDetails);
     }
 }
