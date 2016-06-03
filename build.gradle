@@ -4,3 +4,11 @@ plugins {
 }
 
 mainClassName = 'net.rubygrapefruit.ApiChecker'
+
+repositories {
+    jcenter()
+}
+
+dependencies {
+    compile 'org.ow2.asm:asm:5.1'
+}
