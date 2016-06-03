@@ -64,18 +64,33 @@ public class ApiChecker {
         for (String name : retainedClasses) {
             ClassDetails before = classesBefore.get(name);
             ClassDetails after = classesAfter.get(name);
-            if (!before.superClass.equals(after.superClass)) {
+            if (!before.getSuperClass().equals(after.getSuperClass())) {
                 System.out.println("DIFFERENT SUPER CLASS: " + after);
             }
-            if (!before.interfaces.equals(after.interfaces)) {
+            if (!before.getInterfaces().equals(after.getInterfaces())) {
                 System.out.println("DIFFERENT INTERFACES: " + after);
+                diff(before.getInterfaces(), after.getInterfaces());
             }
-            if (!before.methods.equals(after.methods)) {
+            if (!before.getMethods().equals(after.getMethods())) {
                 System.out.println("DIFFERENT METHODS: " + after);
+                diff(before.getMethods(), after.getMethods());
             }
         }
 
         System.out.println();
+    }
+
+    private <T> void diff(Set<T> before, Set<T> after) {
+        for (T t : before) {
+            if (!after.contains(t)) {
+                System.out.println("  * Removed: " + t);
+            }
+        }
+        for (T t : after) {
+            if (!before.contains(t)) {
+                System.out.println("  * Added: " + t);
+            }
+        }
     }
 
     private void show(File directory, ClassSet classes) throws IOException {
@@ -93,11 +108,11 @@ public class ApiChecker {
 
         classes.getApiClasses().values().forEach(details -> {
             System.out.println(String.format("* class: %s", details));
-            System.out.println(String.format("  * superclass: %s", details.superClass));
-            for (ClassDetails superType : details.interfaces) {
+            System.out.println(String.format("  * superclass: %s", details.getSuperClass()));
+            for (ClassDetails superType : details.getInterfaces()) {
                 System.out.println(String.format("  * interface: %s", superType));
             }
-            for (MethodDetails method : details.methods) {
+            for (MethodDetails method : details.getMethods()) {
                 System.out.println(String.format("  * method: %s", method));
             }
         });
@@ -114,9 +129,9 @@ public class ApiChecker {
                     try {
                         ClassReader reader = new ClassReader(inputStream);
                         ClassDetails classDetails = classes.get(reader.getClassName());
-                        classDetails.superClass = classes.get(reader.getSuperName());
+                        classDetails.setSuperClass(classes.get(reader.getSuperName()));
                         for (String name : reader.getInterfaces()) {
-                            classDetails.interfaces.add(classes.get(name));
+                            classDetails.addInterface(classes.get(name));
                         }
                         reader.accept(new ClassVisitor(Opcodes.ASM5) {
                             @Override
@@ -152,7 +167,7 @@ public class ApiChecker {
             if (details == null) {
                 details = new ClassDetails(name);
                 classes.put(name, details);
-                if (details.name.startsWith("org/gradle/logging") && !details.name.contains("/internal/")) {
+                if (details.getName().startsWith("org/gradle/logging") && !details.getName().contains("/internal/")) {
                     apiClasses.put(name, details);
                 }
             }
@@ -161,72 +176,6 @@ public class ApiChecker {
 
         public Map<String, ClassDetails> getApiClasses() {
             return apiClasses;
-        }
-    }
-
-    static class ClassDetails implements Comparable<ClassDetails> {
-        private final String name;
-        private ClassDetails superClass;
-        private final Set<ClassDetails> interfaces = new TreeSet<>();
-        private final Set<MethodDetails> methods = new HashSet<>();
-
-        public ClassDetails(String name) {
-            this.name = name;
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            ClassDetails other = (ClassDetails) obj;
-            return name.equals(other.name);
-        }
-
-        @Override
-        public int hashCode() {
-            return name.hashCode();
-        }
-
-        @Override
-        public String toString() {
-            return name.replace("/", ".");
-        }
-
-        @Override
-        public int compareTo(ClassDetails o) {
-            return name.compareTo(o.name);
-        }
-
-        public void addMethod(String name, String descriptor) {
-            methods.add(new MethodDetails(name, descriptor));
-        }
-    }
-
-    static class MethodDetails {
-        private final String name;
-        private final String descriptor;
-
-        public MethodDetails(String name, String descriptor) {
-            this.name = name;
-            this.descriptor = descriptor;
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            MethodDetails other = (MethodDetails) obj;
-            return name.equals(other.name) && descriptor.equals(other.descriptor);
-        }
-
-        @Override
-        public int hashCode() {
-            return name.hashCode() ^ descriptor.hashCode();
-        }
-
-        @Override
-        public String toString() {
-            return getSignature();
-        }
-
-        String getSignature() {
-            return name + descriptor;
         }
     }
 }
