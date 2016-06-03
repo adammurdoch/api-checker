@@ -16,26 +16,38 @@ import java.util.jar.JarFile;
 
 /**
  * TODO: Changes in inherited supertypes
- * TODO: Changes in modifiers
+ * TODO: Changes in modifiers (visibility, static, abstract, etc)
  * TODO: Skip private methods
  * TODO: Changes in type parameters for types, methods, exceptions
  * TODO: Changes in checked exceptions
  * TODO: Changes in fields
  * TODO: Changes in annotations
  * TODO: Internal classes reachable from public API
+ * TODO: contents of `lib/plugins`
+ * TODO: detect moved classes
  */
 public class ApiChecker {
-    public static void main(String[] args) throws IOException {
-        new ApiChecker().run(args);
+    private final File before;
+    private final File after;
+    private final DiffListener diffListener;
+
+    public ApiChecker(File before, File after, DiffListener diffListener) {
+        this.before = before;
+        this.after = after;
+        this.diffListener = diffListener;
     }
 
-    public void run(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException {
         if (args.length != 2) {
             throw new IllegalArgumentException("USAGE: <dist-before> <dist-after");
         }
 
         File before = new File(args[0]);
         File after = new File(args[1]);
+        new ApiChecker(before, after, new DiffReporter()).run();
+    }
+
+    public void run() throws IOException {
         System.out.println("Comparing " + before + " to " + after);
 
         ClassSet classesBefore = new ClassSet();
@@ -55,13 +67,13 @@ public class ApiChecker {
         Map<String, ClassDetails> addedClasses = new TreeMap<>(classesAfter.getApiClasses());
         addedClasses.keySet().removeAll(classesBefore.getApiClasses().keySet());
         for (ClassDetails classDetails : addedClasses.values()) {
-            System.out.println("ADDED: " + classDetails);
+            diffListener.classAdded(classDetails);
         }
 
         Map<String, ClassDetails> removedClasses = new TreeMap<>(classesBefore.getApiClasses());
         removedClasses.keySet().removeAll(classesAfter.getApiClasses().keySet());
         for (ClassDetails classDetails : removedClasses.values()) {
-            System.out.println("REMOVED: " + classDetails);
+            diffListener.classRemoved(classDetails);
         }
 
         Set<String> retainedClasses = new TreeSet<>(classesAfter.getApiClasses().keySet());
@@ -69,16 +81,25 @@ public class ApiChecker {
         for (String name : retainedClasses) {
             ClassDetails before = classesBefore.get(name);
             ClassDetails after = classesAfter.get(name);
+            boolean changed = false;
             if (!before.getSuperClass().equals(after.getSuperClass())) {
                 System.out.println("DIFFERENT SUPER CLASS: " + after);
+                changed = true;
             }
             if (!before.getInterfaces().equals(after.getInterfaces())) {
                 System.out.println("DIFFERENT INTERFACES: " + after);
                 diff(before.getInterfaces(), after.getInterfaces());
+                changed = true;
             }
             if (!before.getMethods().equals(after.getMethods())) {
                 System.out.println("DIFFERENT METHODS: " + after);
                 diff(before.getMethods(), after.getMethods());
+                changed = true;
+            }
+            if (changed) {
+                diffListener.classChanged(after);
+            } else {
+                diffListener.classUnchanged(after);
             }
         }
 
@@ -167,6 +188,18 @@ public class ApiChecker {
             });
         } finally {
             jarFile.close();
+        }
+    }
+
+    private static class DiffReporter extends DiffListener {
+        @Override
+        public void classAdded(ClassDetails details) {
+            System.out.println("ADDED: " + details);
+        }
+
+        @Override
+        public void classRemoved(ClassDetails details) {
+            System.out.println("REMOVED: " + details);
         }
     }
 }

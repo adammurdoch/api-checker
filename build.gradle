@@ -14,4 +14,5 @@ dependencies {
     compile 'org.ow2.asm:asm:5.1'
     testCompile 'junit:junit:4.12'
     testCompile 'org.spockframework:spock-core:1.0-groovy-2.0'
+    testCompile 'cglib:cglib-nodep:2.2'
 }
