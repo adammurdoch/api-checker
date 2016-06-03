@@ -8,16 +8,21 @@ import org.objectweb.asm.Opcodes;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.*;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.jar.JarFile;
 
 /**
- * TODO: Inherited supertypes
- * TODO: Inherited methods
- * TODO: Modifiers
- * TODO: Type parameters
- * TODO: Checked exceptions
- * TODO: Fields
+ * TODO: Changes in inherited supertypes
+ * TODO: Changes in modifiers
+ * TODO: Skip private methods
+ * TODO: Changes in type parameters for types, methods, exceptions
+ * TODO: Changes in checked exceptions
+ * TODO: Changes in fields
+ * TODO: Changes in annotations
+ * TODO: Internal classes reachable from public API
  */
 public class ApiChecker {
     public static void main(String[] args) throws IOException {
@@ -34,10 +39,10 @@ public class ApiChecker {
         System.out.println("Comparing " + before + " to " + after);
 
         ClassSet classesBefore = new ClassSet();
-        show(before, classesBefore);
+        inspect(before, classesBefore);
 
         ClassSet classesAfter = new ClassSet();
-        show(after, classesAfter);
+        inspect(after, classesAfter);
 
         diff(classesBefore, classesAfter);
     }
@@ -93,7 +98,7 @@ public class ApiChecker {
         }
     }
 
-    private void show(File directory, ClassSet classes) throws IOException {
+    private void inspect(File directory, ClassSet classes) throws IOException {
         System.out.println();
         System.out.println("==== Inspecting " + directory + " ====");
         System.out.println();
@@ -105,6 +110,7 @@ public class ApiChecker {
                 showJar(file, classes);
             }
         }
+        classes.resolveSuperTypes();
 
         classes.getApiClasses().values().forEach(details -> {
             System.out.println(String.format("* class: %s", details));
@@ -142,7 +148,7 @@ public class ApiChecker {
                             @Override
                             public MethodVisitor visitMethod(int access, String name, String desc, String signature,
                                                              String[] exceptions) {
-                                classDetails.addMethod(name, desc);
+                                classDetails.addDeclaredMethod(name, desc);
                                 return super.visitMethod(access, name, desc, signature, exceptions);
                             }
                         }, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
@@ -155,27 +161,6 @@ public class ApiChecker {
             });
         } finally {
             jarFile.close();
-        }
-    }
-
-    static class ClassSet {
-        private final Map<String, ClassDetails> classes = new HashMap<>();
-        private final Map<String, ClassDetails> apiClasses = new TreeMap<>();
-
-        public ClassDetails get(String name) {
-            ClassDetails details = classes.get(name);
-            if (details == null) {
-                details = new ClassDetails(name);
-                classes.put(name, details);
-                if (details.getName().startsWith("org/gradle/logging") && !details.getName().contains("/internal/")) {
-                    apiClasses.put(name, details);
-                }
-            }
-            return details;
-        }
-
-        public Map<String, ClassDetails> getApiClasses() {
-            return apiClasses;
         }
     }
 }

@@ -1,16 +1,27 @@
 package net.rubygrapefruit;
 
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
 
 class ClassDetails implements Comparable<ClassDetails> {
     private final String name;
     private ClassDetails superClass;
+    private boolean resolved;
     private final Set<ClassDetails> interfaces = new TreeSet<>();
-    private final Set<MethodDetails> methods = new TreeSet<>();
+    private final Map<String, MethodDetails> methods = new TreeMap<>();
 
     public ClassDetails(String name) {
         this.name = name;
+    }
+
+    public boolean isResolved() {
+        return resolved;
+    }
+
+    public void setResolved(boolean resolved) {
+        this.resolved = resolved;
     }
 
     public Set<ClassDetails> getInterfaces() {
@@ -18,7 +29,7 @@ class ClassDetails implements Comparable<ClassDetails> {
     }
 
     public Set<MethodDetails> getMethods() {
-        return methods;
+        return new TreeSet<>(methods.values());
     }
 
     public String getName() {
@@ -54,8 +65,17 @@ class ClassDetails implements Comparable<ClassDetails> {
         return name.compareTo(o.name);
     }
 
-    public void addMethod(String name, String descriptor) {
-        methods.add(new MethodDetails(name, descriptor));
+    public void addDeclaredMethod(String name, String descriptor) {
+        MethodDetails methodDetails = new MethodDetails(name, descriptor);
+        methods.put(methodDetails.getSignature(), methodDetails);
+    }
+
+    public void addInheritedMethods(Iterable<MethodDetails> methods) {
+        for (MethodDetails method : methods) {
+            if (!this.methods.containsKey(method.getSignature())) {
+                this.methods.put(method.getSignature(), method);
+            }
+        }
     }
 
     public void addInterface(ClassDetails classDetails) {
