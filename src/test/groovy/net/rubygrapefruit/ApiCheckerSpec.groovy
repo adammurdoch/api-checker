@@ -34,16 +34,22 @@ class ApiCheckerSpec extends Specification {
         0 * listener._
     }
 
-    def "inspects distributions with unchanged classes"() {
+    def "inspects distributions with unchanged classes that have moved between jars"() {
         def listener = Mock(DiffListener)
         def before = new DistroFixture(temporaryFolder.newFolder("before"))
         before.lib("gradle-core.jar") {
             source("org.gradle.logging.Thing", "package org.gradle.logging; public class Thing { }")
         }
+        before.lib("plugins/gradle-plugins.jar") {
+            source("org.gradle.java.Thing2", "package org.gradle.java; public class Thing2 { }")
+        }
         def after = new DistroFixture(temporaryFolder.newFolder("after"))
         after.lib("gradle-core.jar") {}
         after.lib("gradle-logging.jar") {
             source("org.gradle.logging.Thing", "package org.gradle.logging; public class Thing { }")
+        }
+        after.lib("plugins/gradle-java.jar") {
+            source("org.gradle.java.Thing2", "package org.gradle.java; public class Thing2 { }")
         }
 
         when:
@@ -51,6 +57,7 @@ class ApiCheckerSpec extends Specification {
 
         then:
         1 * listener.classUnchanged({it.name == "org/gradle/logging/Thing"})
+        1 * listener.classUnchanged({it.name == "org/gradle/java/Thing2"})
         0 * listener._
     }
 
@@ -107,7 +114,7 @@ class ApiCheckerSpec extends Specification {
         0 * listener._
     }
 
-    def "ignores changes to implementation classes"() {
+    def "ignores changes to classes that are not part of the public API"() {
         def listener = Mock(DiffListener)
         def before = new DistroFixture(temporaryFolder.newFolder("before"))
         before.lib("gradle-core.jar") {
@@ -291,6 +298,164 @@ class ApiCheckerSpec extends Specification {
         1 * listener.methodAdded({it.name == "org/gradle/logging/Thing1"}, {it.name == "org/gradle/logging/Thing1"}, {it.name == "method3"})
         1 * listener.methodRemoved({it.name == "org/gradle/logging/Thing1"}, {it.name == "org/gradle/logging/Thing1"}, {it.name == "method2"})
         1 * listener.classChanged({it.name == "org/gradle/logging/Thing1"}, {it.name == "org/gradle/logging/Thing1"})
+        0 * listener._
+    }
+
+    def "reports on changes to inherited class methods"() {
+        def listener = Mock(DiffListener)
+        def before = new DistroFixture(temporaryFolder.newFolder("before"))
+        before.lib("gradle-core.jar") {
+            source("org.gradle.logging.Thing1", """
+                package org.gradle.logging;
+                public interface Thing1 {
+                    void implemented1();
+                }
+            """)
+            source("org.gradle.logging.Thing2", """
+                package org.gradle.logging;
+                public class Thing2 {
+                    public void inherited1() { }
+                    public void overridden1() { }
+                }
+            """)
+            source("org.gradle.logging.Thing3", """
+                package org.gradle.logging;
+                public class Thing3 extends Thing2 implements Thing1 {
+                    public void implemented1() { }
+                    public void overridden1() { }
+                }
+            """)
+        }
+        def after = new DistroFixture(temporaryFolder.newFolder("after"))
+        after.lib("gradle-core.jar") {
+            source("org.gradle.logging.Thing1", """
+                package org.gradle.logging;
+                public interface Thing1 {
+                    void implemented1(String s);
+                }
+            """)
+            source("org.gradle.logging.Thing2", """
+                package org.gradle.logging;
+                public class Thing2 {
+                    public void inherited1(String s) { }
+                    public void overridden1(String s) { }
+                }
+            """)
+            source("org.gradle.logging.Thing3", """
+                package org.gradle.logging;
+                public class Thing3 extends Thing2 implements Thing1 {
+                    public void implemented1(String s) { }
+                    public void overridden1(String s) { }
+                }
+            """)
+        }
+
+        when:
+        new ApiChecker(before.installDir, after.installDir, listener).run()
+
+        then:
+        1 * listener.classChanged({it.name == "org/gradle/logging/Thing1"}, {it.name == "org/gradle/logging/Thing1"})
+        1 * listener.methodAdded({it.name == "org/gradle/logging/Thing1"}, {it.name == "org/gradle/logging/Thing1"}, {it.name == "implemented1"})
+        1 * listener.methodRemoved({it.name == "org/gradle/logging/Thing1"}, {it.name == "org/gradle/logging/Thing1"}, {it.name == "implemented1"})
+
+        and:
+        1 * listener.classChanged({it.name == "org/gradle/logging/Thing2"}, {it.name == "org/gradle/logging/Thing2"})
+        1 * listener.methodAdded({it.name == "org/gradle/logging/Thing2"}, {it.name == "org/gradle/logging/Thing2"}, {it.name == "inherited1"})
+        1 * listener.methodRemoved({it.name == "org/gradle/logging/Thing2"}, {it.name == "org/gradle/logging/Thing2"}, {it.name == "inherited1"})
+        1 * listener.methodAdded({it.name == "org/gradle/logging/Thing2"}, {it.name == "org/gradle/logging/Thing2"}, {it.name == "overridden1"})
+        1 * listener.methodRemoved({it.name == "org/gradle/logging/Thing2"}, {it.name == "org/gradle/logging/Thing2"}, {it.name == "overridden1"})
+
+        and:
+        1 * listener.classChanged({it.name == "org/gradle/logging/Thing3"}, {it.name == "org/gradle/logging/Thing3"})
+        1 * listener.methodAdded({it.name == "org/gradle/logging/Thing3"}, {it.name == "org/gradle/logging/Thing3"}, {it.name == "implemented1"})
+        1 * listener.methodRemoved({it.name == "org/gradle/logging/Thing3"}, {it.name == "org/gradle/logging/Thing3"}, {it.name == "implemented1"})
+        1 * listener.methodAdded({it.name == "org/gradle/logging/Thing3"}, {it.name == "org/gradle/logging/Thing3"}, {it.name == "inherited1"})
+        1 * listener.methodRemoved({it.name == "org/gradle/logging/Thing3"}, {it.name == "org/gradle/logging/Thing3"}, {it.name == "inherited1"})
+        1 * listener.methodAdded({it.name == "org/gradle/logging/Thing3"}, {it.name == "org/gradle/logging/Thing3"}, {it.name == "overridden1"})
+        1 * listener.methodRemoved({it.name == "org/gradle/logging/Thing3"}, {it.name == "org/gradle/logging/Thing3"}, {it.name == "overridden1"})
+        0 * listener._
+    }
+
+    def "reports on changes to inherited interface methods"() {
+        def listener = Mock(DiffListener)
+        def before = new DistroFixture(temporaryFolder.newFolder("before"))
+        before.lib("gradle-core.jar") {
+            source("org.gradle.logging.Thing1", """
+                package org.gradle.logging;
+                public interface Thing1 {
+                    void inherited1();
+                    void shared();
+                }
+            """)
+            source("org.gradle.logging.Thing2", """
+                package org.gradle.logging;
+                public interface Thing2 {
+                    void inherited2();
+                    void shared();
+                    void overridden2();
+                }
+            """)
+            source("org.gradle.logging.Thing3", """
+                package org.gradle.logging;
+                public interface Thing3 extends Thing2, Thing1 {
+                    void overridden2();
+                }
+            """)
+        }
+        def after = new DistroFixture(temporaryFolder.newFolder("after"))
+        after.lib("gradle-core.jar") {
+            source("org.gradle.logging.Thing1", """
+                package org.gradle.logging;
+                public interface Thing1 {
+                    void inherited1(String s);
+                    void shared(String s);
+                }
+            """)
+            source("org.gradle.logging.Thing2", """
+                package org.gradle.logging;
+                public interface Thing2 {
+                    void inherited2(String s);
+                    void shared(String s);
+                    void overridden2(String s);
+                }
+            """)
+            source("org.gradle.logging.Thing3", """
+                package org.gradle.logging;
+                public interface Thing3 extends Thing2, Thing1 {
+                    void overridden2(String s);
+                }
+            """)
+        }
+
+        when:
+        new ApiChecker(before.installDir, after.installDir, listener).run()
+
+        then:
+        1 * listener.classChanged({it.name == "org/gradle/logging/Thing1"}, {it.name == "org/gradle/logging/Thing1"})
+        1 * listener.methodAdded({it.name == "org/gradle/logging/Thing1"}, {it.name == "org/gradle/logging/Thing1"}, {it.name == "inherited1"})
+        1 * listener.methodRemoved({it.name == "org/gradle/logging/Thing1"}, {it.name == "org/gradle/logging/Thing1"}, {it.name == "inherited1"})
+        1 * listener.methodAdded({it.name == "org/gradle/logging/Thing1"}, {it.name == "org/gradle/logging/Thing1"}, {it.name == "shared"})
+        1 * listener.methodRemoved({it.name == "org/gradle/logging/Thing1"}, {it.name == "org/gradle/logging/Thing1"}, {it.name == "shared"})
+
+        and:
+        1 * listener.classChanged({it.name == "org/gradle/logging/Thing2"}, {it.name == "org/gradle/logging/Thing2"})
+        1 * listener.methodAdded({it.name == "org/gradle/logging/Thing2"}, {it.name == "org/gradle/logging/Thing2"}, {it.name == "inherited2"})
+        1 * listener.methodRemoved({it.name == "org/gradle/logging/Thing2"}, {it.name == "org/gradle/logging/Thing2"}, {it.name == "inherited2"})
+        1 * listener.methodAdded({it.name == "org/gradle/logging/Thing2"}, {it.name == "org/gradle/logging/Thing2"}, {it.name == "shared"})
+        1 * listener.methodRemoved({it.name == "org/gradle/logging/Thing2"}, {it.name == "org/gradle/logging/Thing2"}, {it.name == "shared"})
+        1 * listener.methodAdded({it.name == "org/gradle/logging/Thing2"}, {it.name == "org/gradle/logging/Thing2"}, {it.name == "overridden2"})
+        1 * listener.methodRemoved({it.name == "org/gradle/logging/Thing2"}, {it.name == "org/gradle/logging/Thing2"}, {it.name == "overridden2"})
+
+        and:
+        1 * listener.classChanged({it.name == "org/gradle/logging/Thing3"}, {it.name == "org/gradle/logging/Thing3"})
+        1 * listener.methodAdded({it.name == "org/gradle/logging/Thing3"}, {it.name == "org/gradle/logging/Thing3"}, {it.name == "inherited1"})
+        1 * listener.methodRemoved({it.name == "org/gradle/logging/Thing3"}, {it.name == "org/gradle/logging/Thing3"}, {it.name == "inherited1"})
+        1 * listener.methodAdded({it.name == "org/gradle/logging/Thing3"}, {it.name == "org/gradle/logging/Thing3"}, {it.name == "inherited2"})
+        1 * listener.methodRemoved({it.name == "org/gradle/logging/Thing3"}, {it.name == "org/gradle/logging/Thing3"}, {it.name == "inherited2"})
+        1 * listener.methodAdded({it.name == "org/gradle/logging/Thing3"}, {it.name == "org/gradle/logging/Thing3"}, {it.name == "shared"})
+        1 * listener.methodRemoved({it.name == "org/gradle/logging/Thing3"}, {it.name == "org/gradle/logging/Thing3"}, {it.name == "shared"})
+        1 * listener.methodAdded({it.name == "org/gradle/logging/Thing3"}, {it.name == "org/gradle/logging/Thing3"}, {it.name == "overridden2"})
+        1 * listener.methodRemoved({it.name == "org/gradle/logging/Thing3"}, {it.name == "org/gradle/logging/Thing3"}, {it.name == "overridden2"})
         0 * listener._
     }
 
