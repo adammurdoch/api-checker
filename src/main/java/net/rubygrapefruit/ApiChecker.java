@@ -168,8 +168,7 @@ public class ApiChecker {
         JarFile jarFile = new JarFile(file);
         try {
             jarFile.stream().filter(
-                    entry -> !entry.isDirectory() && entry.getName().startsWith("org/gradle") && entry.getName()
-                            .endsWith(".class")).forEach(entry -> {
+                    entry -> !entry.isDirectory() && entry.getName().endsWith(".class")).forEach(entry -> {
                 try {
                     InputStream inputStream = jarFile.getInputStream(entry);
                     try {
@@ -270,7 +269,7 @@ public class ApiChecker {
 
         @Override
         public void methodRemoved(ClassDetails before, ClassDetails after, MethodDetails removedMethod) {
-            System.out.println("  * method remove: " + removedMethod);
+            System.out.println("  * method removed: " + removedMethod);
         }
     }
 }
