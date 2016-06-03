@@ -29,13 +29,13 @@ public class ApiChecker {
         new ApiChecker().run(args);
     }
 
-    private void run(String[] args) throws IOException {
+    public void run(String[] args) throws IOException {
         if (args.length != 2) {
             throw new IllegalArgumentException("USAGE: <dist-before> <dist-after");
         }
 
-        File before = new File(args[0], "lib");
-        File after = new File(args[1], "lib");
+        File before = new File(args[0]);
+        File after = new File(args[1]);
         System.out.println("Comparing " + before + " to " + after);
 
         ClassSet classesBefore = new ClassSet();
@@ -98,14 +98,20 @@ public class ApiChecker {
         }
     }
 
-    private void inspect(File directory, ClassSet classes) throws IOException {
-        System.out.println();
-        System.out.println("==== Inspecting " + directory + " ====");
-        System.out.println();
-        if (!directory.isDirectory()) {
-            throw new IllegalArgumentException(String.format("Directory %s does not exist", directory));
+    private void inspect(File distroDir, ClassSet classes) throws IOException {
+        if (!distroDir.isDirectory()) {
+            throw new IllegalArgumentException(String.format("Directory %s does not exist", distroDir));
         }
-        for (File file : directory.listFiles()) {
+
+        System.out.println();
+        System.out.println("==== Inspecting " + distroDir + " ====");
+        System.out.println();
+        File libDir = new File(distroDir, "lib");
+        if (!libDir.isDirectory()) {
+            throw new IllegalArgumentException( String.format("Distribution %s does not contain a lib/ directory", distroDir));
+        }
+
+        for (File file : libDir.listFiles()) {
             if (file.isFile()) {
                 showJar(file, classes);
             }
