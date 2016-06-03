@@ -554,4 +554,40 @@ class ApiCheckerSpec extends Specification {
         1 * listener.fieldAdded({it.name == "org/gradle/logging/Thing1"}, {it.name == "org/gradle/logging/Thing1"}, {it.name == "protected4"})
         0 * listener._
     }
+
+    def "ignores changes to private and package protected fields"() {
+        def listener = Mock(DiffListener)
+        def before = new DistroFixture(temporaryFolder.newFolder("before"))
+        before.lib("gradle-core.jar") {
+            source("org.gradle.logging.Thing1", """
+                package org.gradle.logging;
+                public class Thing1 {
+                    String packageProtected1;
+                    String packageProtected2;
+                    private long private1;
+                    private long private2;
+                }
+            """)
+        }
+        def after = new DistroFixture(temporaryFolder.newFolder("after"))
+        after.lib("gradle-core.jar") {}
+        after.lib("gradle-logging.jar") {
+            source("org.gradle.logging.Thing1", """
+                package org.gradle.logging;
+                public class Thing1 {
+                    Object packageProtected1;
+                    String packageProtected3;
+                    private Number private1;
+                    private long private4;
+                }
+            """)
+        }
+
+        when:
+        new ApiChecker(before.installDir, after.installDir, listener).run()
+
+        then:
+        1 * listener.classUnchanged({it.name == "org/gradle/logging/Thing1"})
+        0 * listener._
+    }
 }

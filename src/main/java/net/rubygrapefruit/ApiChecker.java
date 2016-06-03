@@ -113,15 +113,15 @@ public class ApiChecker {
                     }
                 }
             }
-            if (!before.getFields().equals(after.getFields())) {
+            if (!before.getVisibleFields().equals(after.getVisibleFields())) {
                 diffCollector.changed();
-                for (FieldDetails field : before.getFields()) {
-                    if (!after.getFields().contains(field)) {
+                for (FieldDetails field : before.getVisibleFields()) {
+                    if (!after.getVisibleFields().contains(field)) {
                         diffListener.fieldRemoved(before, after, field);
                     }
                 }
-                for (FieldDetails field : after.getFields()) {
-                    if (!before.getFields().contains(field)) {
+                for (FieldDetails field : after.getVisibleFields()) {
+                    if (!before.getVisibleFields().contains(field)) {
                         diffListener.fieldAdded(before, after, field);
                     }
                 }

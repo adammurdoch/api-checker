@@ -20,6 +20,11 @@ public class FieldDetails implements Comparable<FieldDetails> {
         return name + ' ' + descriptor;
     }
 
+    public boolean isVisibleOutsidePackage() {
+        Visibility visibility = Visibility.fromAccessField(access);
+        return visibility == Visibility.Public || visibility == Visibility.Protected;
+    }
+
     @Override
     public String toString() {
         return getSignature();
